@@ -1,10 +1,12 @@
 #include "configuration.h"
 #if HAS_SCREEN
 
-// HACK: Access private members of VirtualKeyboard to support physical keyboard input
+#if defined(M5STACK_CARDPUTER_ADV)
+// Access private members of VirtualKeyboard to support physical keyboard input
 #define private public
 #include "graphics/VirtualKeyboard.h"
 #undef private
+#endif
 
 #include "graphics/SharedUIDisplay.h"
 #include "graphics/draw/NotificationRenderer.h"
@@ -89,7 +91,7 @@ void OnScreenKeyboardModule::handleInput(const InputEvent &event)
 
 bool OnScreenKeyboardModule::processVirtualKeyboardInput(const InputEvent &event, VirtualKeyboard *targetKeyboard)
 {
-    LOG_INFO("OSK processInput event=%d char=%d", event.inputEvent, event.kbchar);
+    LOG_INPUT("OSK processInput event=%d char=%d", event.inputEvent, event.kbchar);
     if (!targetKeyboard)
         return false;
 
@@ -124,6 +126,11 @@ bool OnScreenKeyboardModule::processVirtualKeyboardInput(const InputEvent &event
     case INPUT_BROKER_USER_PRESS:
         targetKeyboard->toggleIME();
         return true;
+#if defined(M5STACK_CARDPUTER_ADV)
+    case INPUT_BROKER_CANCEL:
+        // Handle cancel via module to ensure proper cleanup (avoid double-free in NotificationRenderer)
+        OnScreenKeyboardModule::instance().onCancel();
+        return true;
     case INPUT_BROKER_BACK:
         targetKeyboard->deleteCharacter();
         return true;
@@ -141,6 +148,7 @@ bool OnScreenKeyboardModule::processVirtualKeyboardInput(const InputEvent &event
             return true;
         }
         return false;
+#endif
     default:
         return false;
     }

@@ -30,7 +30,9 @@ class OnScreenKeyboardModule
     // Draw only the popup overlay (used when legacy virtualKeyboard draws the keyboard)
     void drawPopupOverlay(OLEDDisplay *display);
 
+#if defined(M5STACK_CARDPUTER_ADV)
     void onCancel();
+#endif
 
   private:
     OnScreenKeyboardModule() = default;
@@ -39,6 +41,9 @@ class OnScreenKeyboardModule
     OnScreenKeyboardModule &operator=(const OnScreenKeyboardModule &) = delete;
 
     void onSubmit(const std::string &text);
+#if !defined(M5STACK_CARDPUTER_ADV)
+    void onCancel();
+#endif
 
     void drawPopup(OLEDDisplay *display);
 

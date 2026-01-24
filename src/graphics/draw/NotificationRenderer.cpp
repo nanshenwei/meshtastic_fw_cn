@@ -697,9 +697,30 @@ void NotificationRenderer::drawTextInput(OLEDDisplay *display, OLEDDisplayUiStat
     if (virtualKeyboard) {
         // Check for timeout and auto-exit if needed
         if (virtualKeyboard->isTimedOut()) {
+#if !defined(M5STACK_CARDPUTER_ADV)
             LOG_INFO("Virtual keyboard timeout - auto-exiting");
+                        // Cancel virtual keyboard - call callback with empty string to indicate timeout
+            auto callback = textInputCallback; // Store callback before clearing
+
+            // Clean up first to prevent re-entry
+            delete virtualKeyboard;
+            virtualKeyboard = nullptr;
+            textInputCallback = nullptr;
+            resetBanner();
+
+            // Call callback after cleanup
+            if (callback) {
+                callback("");
+            }
+
+            // Restore normal overlays
+            if (screen) {
+                screen->setFrames(graphics::Screen::FOCUS_PRESERVE);
+            }
+#else
             // Use the module's onCancel to safely clean up and avoid double-free
             OnScreenKeyboardModule::instance().onCancel();
+#endif
             return;
         }
 
