@@ -55,7 +55,7 @@
 #define DAC_I2S_MCLK -1 //???
 
 // lovyan
-#if 0
+#if 1
 // ST7789 TFT LCD
 #define ST7789_CS 37
 #define ST7789_RS 34  // DC
@@ -65,21 +65,22 @@
 #define ST7789_MISO -1
 #define ST7789_BUSY -1
 #define ST7789_BL 38
-#define ST7789_SPI_HOST SPI2_HOST
+#define ST7789_SPI_HOST SPI3_HOST
 #define TFT_BL 38
 #define SPI_FREQUENCY 40000000
 #define SPI_READ_FREQUENCY 16000000
-#define TFT_HEIGHT 135
-#define TFT_WIDTH 240
-#define TFT_OFFSET_X 0
-#define TFT_OFFSET_Y 0
+#define TFT_HEIGHT 240
+#define TFT_WIDTH 135
+#define TFT_OFFSET_X -50
+#define TFT_OFFSET_Y 40
 #define TFT_OFFSET_ROTATION 2
 #define SCREEN_ROTATE
-#define SCREEN_TRANSITION_FRAMERATE 5 // fps
+#define SCREEN_TRANSITION_FRAMERATE 3 // fps
+#define USE_TFTDISPLAY 1
 #endif
 
 // github.com/meshtastic/st7789
-#if 1
+#if 0
 // Display (TFT)
 #define USE_ST7789
 #define ST7789_NSS 37
@@ -104,7 +105,7 @@
 
 // LoRa
 #define USE_SX1262 // Currently only SX1262 CAP is available
-#define USE_RF95   // Test
+// #define USE_RF95   // Test
 
 #define LORA_SCK SCK
 #define LORA_MISO MISO
