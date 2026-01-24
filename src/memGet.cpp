@@ -44,8 +44,11 @@ uint32_t MemGet::getFreeHeap()
 uint32_t MemGet::getHeapSize()
 {
 #ifdef ARCH_ESP32
-    // return ESP.getHeapSize();
+#if !defined(M5STACK_CARDPUTER_ADV)
+    return ESP.getHeapSize();
+#else
     return 202776; // TEMPORARY FIX FOR ESP32S3FN8 RETURNING CRASH
+#endif
 #elif defined(ARCH_NRF52)
     return dbgHeapTotal();
 #elif defined(ARCH_RP2040)
