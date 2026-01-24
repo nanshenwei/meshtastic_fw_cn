@@ -71,12 +71,13 @@
 #define SPI_READ_FREQUENCY 16000000
 #define TFT_HEIGHT 240
 #define TFT_WIDTH 135
-#define TFT_OFFSET_X -50
+#define TFT_OFFSET_X -53
 #define TFT_OFFSET_Y 40
 #define TFT_OFFSET_ROTATION 2
 #define SCREEN_ROTATE
 #define SCREEN_TRANSITION_FRAMERATE 3 // fps
 #define USE_TFTDISPLAY 1
+#define InputBrokerDebug 1
 #endif
 
 // github.com/meshtastic/st7789

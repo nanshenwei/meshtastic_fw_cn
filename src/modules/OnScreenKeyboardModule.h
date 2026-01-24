@@ -30,6 +30,8 @@ class OnScreenKeyboardModule
     // Draw only the popup overlay (used when legacy virtualKeyboard draws the keyboard)
     void drawPopupOverlay(OLEDDisplay *display);
 
+    void onCancel();
+
   private:
     OnScreenKeyboardModule() = default;
     ~OnScreenKeyboardModule();
@@ -37,7 +39,6 @@ class OnScreenKeyboardModule
     OnScreenKeyboardModule &operator=(const OnScreenKeyboardModule &) = delete;
 
     void onSubmit(const std::string &text);
-    void onCancel();
 
     void drawPopup(OLEDDisplay *display);
 

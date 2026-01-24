@@ -1,6 +1,11 @@
 #include "configuration.h"
 #if HAS_SCREEN
 
+// HACK: Access private members of VirtualKeyboard to support physical keyboard input
+#define private public
+#include "graphics/VirtualKeyboard.h"
+#undef private
+
 #include "graphics/SharedUIDisplay.h"
 #include "graphics/draw/NotificationRenderer.h"
 #include "input/RotaryEncoderInterruptImpl1.h"
@@ -84,6 +89,7 @@ void OnScreenKeyboardModule::handleInput(const InputEvent &event)
 
 bool OnScreenKeyboardModule::processVirtualKeyboardInput(const InputEvent &event, VirtualKeyboard *targetKeyboard)
 {
+    LOG_INFO("OSK processInput event=%d char=%d", event.inputEvent, event.kbchar);
     if (!targetKeyboard)
         return false;
 
@@ -105,7 +111,12 @@ bool OnScreenKeyboardModule::processVirtualKeyboardInput(const InputEvent &event
         targetKeyboard->moveCursorRight();
         return true;
     case INPUT_BROKER_SELECT:
+#if defined(M5STACK_CARDPUTER_ADV)
+        // For Cardputer, SELECT (Enter) should submit text, not press virtual key '1'
+        targetKeyboard->submitText();
+#else
         targetKeyboard->handlePress();
+#endif
         return true;
     case INPUT_BROKER_SELECT_LONG:
         targetKeyboard->handleLongPress();
@@ -113,6 +124,23 @@ bool OnScreenKeyboardModule::processVirtualKeyboardInput(const InputEvent &event
     case INPUT_BROKER_USER_PRESS:
         targetKeyboard->toggleIME();
         return true;
+    case INPUT_BROKER_BACK:
+        targetKeyboard->deleteCharacter();
+        return true;
+    case INPUT_BROKER_ANYKEY:
+        if (event.kbchar == 0x08) {
+            targetKeyboard->deleteCharacter();
+            return true;
+        }
+        if (event.kbchar == 0x0D || event.kbchar == 0x0A) {
+            targetKeyboard->submitText();
+            return true;
+        }
+        if (event.kbchar >= 32 && event.kbchar <= 126) {
+            targetKeyboard->insertCharacter((char)event.kbchar);
+            return true;
+        }
+        return false;
     default:
         return false;
     }

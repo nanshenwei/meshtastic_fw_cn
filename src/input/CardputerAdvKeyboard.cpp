@@ -33,7 +33,7 @@ static uint8_t CardputerAdvTapMod[_TCA8418_NUM_KEYS] = {3, 3, 3, 3, 3, 3, 3, 3, 
 static unsigned char CardputerAdvTapMap[_TCA8418_NUM_KEYS][3] = {{'`', '~', Key::ESC},
                                                                {Key::TAB, 0x00, 0x00},
                                                                {0x00, 0x00, 0x00},          // Fn
-                                                               {0x00, 0x00, 0x00},          // ctrl
+                                                               {0x05, 0x05, 0x05},          // ctrl
                                                                {'1', '!', 0x00},
                                                                {'q', 'Q', Key::REBOOT},
                                                                {0x00, 0x00, 0x00},          // shift
@@ -84,7 +84,7 @@ static unsigned char CardputerAdvTapMap[_TCA8418_NUM_KEYS][3] = {{'`', '~', Key:
                                                                {'/', '?', Key::RIGHT},
                                                                {Key::BSP, 0x00, 0x00},
                                                                {'\\', '|', 0x00},
-                                                               {Key::SELECT, 0x00, 0x00},   // Enter
+                                                               {0x0D, 0x00, 0x00},          // Enter
                                                                {' ', ' ', ' '}};            // Space
 
 CardputerAdvKeyboard::CardputerAdvKeyboard()
@@ -119,6 +119,7 @@ void CardputerAdvKeyboard::trigger()
 
 void CardputerAdvKeyboard::pressed(uint8_t key)
 {
+    LOG_INPUT("CardputerAdv pressed: %d", key);
     if (state == Init || state == Busy) {
         return;
     }

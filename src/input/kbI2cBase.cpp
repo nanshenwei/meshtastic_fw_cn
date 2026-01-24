@@ -320,6 +320,16 @@ int32_t KbI2cBase::runOnce()
                 e.inputEvent = INPUT_BROKER_CANCEL;
                 e.kbchar = 0x00;
                 break;
+#if defined(M5STACK_CARDPUTER_ADV)
+            case 0x05: // Ctrl -> Toggle IME
+                e.inputEvent = INPUT_BROKER_USER_PRESS;
+                e.kbchar = 0x00;
+                break;
+            // case 0x0D: // CR -> Submit
+            //     e.inputEvent = INPUT_BROKER_ANYKEY;
+            //     e.kbchar = 0x0D;
+            //     break;
+#endif
             case TCA8418KeyboardBase::GPS_TOGGLE:
                 e.inputEvent = INPUT_BROKER_ANYKEY;
                 e.kbchar = INPUT_BROKER_GPS_TOGGLE;
@@ -355,6 +365,7 @@ int32_t KbI2cBase::runOnce()
                 break;
             }
             if (e.inputEvent != INPUT_BROKER_NONE) {
+                LOG_INPUT("KbI2cBase dispatch event: %d char: %d", e.inputEvent, e.kbchar);
                 // LOG_DEBUG("TCA8418 Notifying: %i Char: %c", e.inputEvent, e.kbchar);
                 this->notifyObservers(&e);
             }

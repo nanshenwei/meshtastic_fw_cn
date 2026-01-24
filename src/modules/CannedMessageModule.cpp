@@ -436,6 +436,51 @@ int CannedMessageModule::handleInputEvent(const InputEvent *event)
         }
         // Printable char (ASCII) opens free text compose
         if (event->kbchar >= 32 && event->kbchar <= 126) {
+#if defined(M5STACK_CARDPUTER_ADV)
+            if (screen) {
+                LOG_INFO("CannedMessageModule: Auto-launching OSK from INACTIVE state");
+                char headerBuffer[64];
+                if (this->dest == NODENUM_BROADCAST) {
+                    snprintf(headerBuffer, sizeof(headerBuffer), "To: #%s", channels.getName(this->channel));
+                } else {
+                    snprintf(headerBuffer, sizeof(headerBuffer), "To: @%s", getNodeName(this->dest));
+                }
+                
+                std::string initialText;
+                initialText += (char)event->kbchar;
+
+                screen->showTextInput(headerBuffer, initialText.c_str(), 300000, [this](const std::string &text) {
+                    if (!text.empty()) {
+                        this->freetext = text.c_str();
+                        this->payload = CANNED_MESSAGE_RUN_STATE_FREETEXT;
+                        runState = CANNED_MESSAGE_RUN_STATE_SENDING_ACTIVE;
+                        currentMessageIndex = -1;
+
+                        UIFrameEvent e;
+                        e.action = UIFrameEvent::Action::REGENERATE_FRAMESET;
+                        this->notifyObservers(&e);
+                        screen->forceDisplay();
+
+                        setIntervalFromNow(500);
+                        return;
+                    } else {
+                        graphics::NotificationRenderer::textInputCallback = nullptr;
+                        graphics::NotificationRenderer::resetBanner();
+                        this->runState = CANNED_MESSAGE_RUN_STATE_INACTIVE;
+                        this->currentMessageIndex = -1;
+                        this->freetext = "";
+                        this->cursor = 0;
+                        UIFrameEvent e;
+                        e.action = UIFrameEvent::Action::REGENERATE_FRAMESET;
+                        this->notifyObservers(&e);
+                        screen->forceDisplay();
+                        setIntervalFromNow(50);
+                        return;
+                    }
+                });
+                return 1;
+            }
+#endif
             runState = CANNED_MESSAGE_RUN_STATE_FREETEXT;
             requestFocus();
             UIFrameEvent e;
@@ -701,7 +746,12 @@ bool CannedMessageModule::handleMessageSelectorInput(const InputEvent *event, bo
         }
 #else
         if (strcmp(current, "[-- Free Text --]") == 0) {
-            if (osk_found && screen) {
+            bool useOSK = (osk_found && screen);
+#if defined(M5STACK_CARDPUTER_ADV)
+            useOSK = true;
+#endif
+            if (useOSK) {
+                LOG_INPUT("CannedMessageModule: Launching OSK");
                 char headerBuffer[64];
                 if (this->dest == NODENUM_BROADCAST) {
                     snprintf(headerBuffer, sizeof(headerBuffer), "To: #%s", channels.getName(this->channel));

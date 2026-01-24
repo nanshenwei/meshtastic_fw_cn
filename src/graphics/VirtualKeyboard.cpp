@@ -86,6 +86,12 @@ void VirtualKeyboard::draw(OLEDDisplay *display, int16_t offsetX, int16_t offset
     const int screenW = display->getWidth();
     const int screenH = display->getHeight();
 
+#if defined(M5STACK_CARDPUTER_ADV)
+    // For Cardputer Adv, use full screen for input area (no virtual keys)
+    drawInputArea(display, offsetX, offsetY, screenH);
+    return;
+#endif
+
     // Decide wide-screen mode: if there is comfortable width, allow taller keys and reserve fixed width for last column labels
     // Heuristic: if screen width >= 200px (e.g., 240x135), treat as wide
     const bool isWide = screenW >= 200;
@@ -186,13 +192,24 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
     // Header uses the standard small (which may be larger on big screens)
     display->setFont(FONT_SMALL);
     int headerHeight = 0;
+#if defined(M5STACK_CARDPUTER_ADV)
+    int chineseArea = (IMEStatus == ACTIVE) ? 24 : 0;
+#else
     int chineseArea = (IMEStatus == ACTIVE) ? 12 : 0;
+#endif
     if (!headerText.empty() && IMEStatus == INACTIVE) {
         // Draw header and reserve exact font height (plus a tighter gap) to maximize input area
         display->drawString(offsetX + 2, offsetY, headerText.c_str());
         // On very small screens (e.g., 128x64), push the input box as close as possible to the header
         headerHeight = FONT_HEIGHT_SMALL; // no extra padding baked in
     }
+
+#if defined(M5STACK_CARDPUTER_ADV)
+    // Draw IME Status (CN/EN)
+    display->setTextAlignment(TEXT_ALIGN_RIGHT);
+    display->drawString(screenWidth, offsetY, (IMEStatus == ACTIVE) ? "CN" : "EN");
+    display->setTextAlignment(TEXT_ALIGN_LEFT);
+#endif
 
     // Input box - from below header down to just above the keyboard
     const int boxX = offsetX + 2;
@@ -244,6 +261,7 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
         selectList = "";
         selectListLayout = {};
         char *resultptr = pinyin_simple_search(currentPinyin.c_str());
+        LOG_INPUT("Pinyin search '%s' -> %s", currentPinyin.c_str(), resultptr ? "found" : "null");
         std::string List = (resultptr == NULL) ? "" : resultptr;
         selectListfulllen = List.length();
         std::string str = List.substr(selectListOffset);
@@ -253,16 +271,43 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
                 break;
             }
             bytesToCopy = getUtf8Length(str.c_str(), copiedBytes);
+#if !defined(M5STACK_CARDPUTER_ADV)
             if (cursorCol == gotChars) {
                 uint8_t width = display->getStringWidth(selectList.c_str(), selectList.length(), true);//screen->getCJKwidth(display, selectList.c_str());
                 display->drawHorizontalLine(width, boxHeight, 12);     // display the current selected word.
                 display->drawHorizontalLine(width, boxHeight + 1, 12); // double underline cuz i'm short-sighted.
             }
+#endif
             selectList.append(str.substr(copiedBytes, bytesToCopy));
             selectListLayout.push_back(bytesToCopy);
             copiedBytes += bytesToCopy;
             gotChars++;
         }
+        selectableChars = gotChars;
+
+#if defined(M5STACK_CARDPUTER_ADV)
+        // Render candidates with numbers for Cardputer
+        int xPos = 0;
+        int yPos = boxHeight - chineseArea;
+        int currentOffset = 0;
+        for(int i=0; i < gotChars; i++) {
+             int charLen = selectListLayout[i];
+             std::string word = selectList.substr(currentOffset, charLen);
+             currentOffset += charLen;
+             
+             std::string numStr = std::to_string(i+1);
+             display->drawString(xPos, yPos, numStr.c_str());
+             display->drawString(xPos, yPos + 12, word.c_str());
+             
+             int numW = display->getStringWidth(numStr.c_str());
+             int wordW = display->getStringWidth(word.c_str(), word.length(), true);
+             xPos += std::max(numW, wordW) + 6;
+        }
+        // Draw "0->" if more candidates exist
+        if (selectListOffset + selectList.length() < selectListfulllen) {
+             display->drawString(xPos, yPos + 12, "0->");
+        }
+#else
         display->drawString(display->width() - 10, boxHeight - chineseArea, ">");
         if (cursorCol == 9) {
             display->drawHorizontalLine(display->width() - 10, boxHeight,
@@ -270,8 +315,8 @@ void VirtualKeyboard::drawInputArea(OLEDDisplay *display, int16_t offsetX, int16
             display->drawHorizontalLine(display->width() - 10, boxHeight + 1,
                                         display->getStringWidth(">")); // double underline cuz i'm short-sighted.
         }
-        selectableChars = gotChars;
         display->drawString( 0, boxHeight - chineseArea, selectList.c_str()); // FIXME:support multiple pages.
+#endif
     }
 
     // Text rendering: multi-line if space allows (>= 2 lines), else single-line with leading ellipsis
@@ -673,9 +718,15 @@ void VirtualKeyboard::handleLongPress()
 
 void VirtualKeyboard::insertCharacter(char c)
 {
+    resetTimeout();
+    LOG_INPUT("VirtualKeyboard::insertCharacter c=%c (%d) IME=%d", c, c, IMEStatus);
     if (IMEStatus == ACTIVE) {
         if (c >= '1' && c <= '9' && !selectList.empty()) { // digits for chinese selection
+#if defined(M5STACK_CARDPUTER_ADV)
+            selectChineseChar(c - '1');
+#else
             selectChineseChar(cursorCol);
+#endif
         } else if (c >= 'a' && c <= 'z') { // pinyin input
             if (selectListOffset != 0)
                 selectListOffset = 0; // reset offset when input more chars.
@@ -699,13 +750,22 @@ void VirtualKeyboard::insertCharacter(char c)
 
 void VirtualKeyboard::deleteCharacter()
 {
+    resetTimeout();
     if (!inputText.empty()) {
-        uint8_t lengthToErase;
-        lengthToErase = inputTextLayout.back();
-        inputTextLayout.pop_back();
-        inputText.erase(inputText.length() - lengthToErase, inputText.length());
+        uint8_t lengthToErase = 1;
+        if (!inputTextLayout.empty()) {
+            lengthToErase = inputTextLayout.back();
+            inputTextLayout.pop_back();
+        }
+        
+        if (inputText.length() >= lengthToErase) {
+            inputText.erase(inputText.length() - lengthToErase, lengthToErase);
+        } else {
+            inputText.clear();
+        }
+
         if (inputText.length() < processedWords) {
-            processedWords -= lengthToErase;
+            processedWords = inputText.length();
         }
     }
 }
@@ -742,6 +802,17 @@ void VirtualKeyboard::submitText()
 void VirtualKeyboard::setInputText(const std::string &text)
 {
     inputText = text;
+    inputTextLayout.clear();
+    processedWords = 0;
+    
+    size_t pos = 0;
+    while (pos < inputText.length()) {
+        uint8_t len = getUtf8Length(inputText.c_str(), pos);
+        if (len == 0) len = 1;
+        inputTextLayout.push_back(len);
+        pos += len;
+        processedWords += len;
+    }
 }
 
 std::string VirtualKeyboard::getInputText() const
@@ -771,6 +842,8 @@ bool VirtualKeyboard::isTimedOut() const
 
 void VirtualKeyboard::toggleIME()
 {
+    resetTimeout();
+    LOG_INPUT("VirtualKeyboard::toggleIME");
     if (IMEStatus == ACTIVE) { // reset vars
         selectList = "";
         selectListLayout = {};
@@ -812,6 +885,8 @@ uint8_t VirtualKeyboard::getChineseChar(uint8_t c)
 
 void VirtualKeyboard::selectChineseChar(uint8_t chridx)
 {
+    resetTimeout();
+    LOG_INPUT("VirtualKeyboard::selectChineseChar idx=%d", chridx);
     if (chridx > selectableChars)
         return; // make sure it won't overflow.
     int pinyinLength = inputText.length() - processedWords;
@@ -827,6 +902,7 @@ void VirtualKeyboard::selectChineseChar(uint8_t chridx)
 
 void VirtualKeyboard::showNextSelection()
 {
+    resetTimeout();
     uint8_t listlen = selectList.length();
     uint8_t nextOffset = selectListOffset + listlen;
     selectListOffset = nextOffset >= selectListfulllen ? 0 : nextOffset;
